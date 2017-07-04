@@ -8,6 +8,7 @@ import (
 	"github.com/gambarini/xerogolang"
 	"github.com/gambarini/xerogolang/helpers"
 	"github.com/markbates/goth"
+	"net/http"
 )
 
 //Invoice is an Accounts Payable or Accounts Recievable document in a Xero organisation
@@ -225,6 +226,20 @@ func FindInvoice(provider *xerogolang.Provider, session goth.Session, invoiceID 
 	}
 
 	return unmarshalInvoice(invoiceResponseBytes)
+}
+
+//FindInvoice will get a single invoice - invoiceID can be a GUID for an invoice or an invoice number
+func FindInvoicePDF(provider *xerogolang.Provider, session goth.Session, invoiceID string) (*http.Response, error) {
+	additionalHeaders := map[string]string{
+		"Accept": "application/pdf",
+	}
+
+	response, err := provider.FindAsFile(session, "Invoices/"+invoiceID, additionalHeaders, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 //GenerateExampleInvoice Creates an Example invoice
