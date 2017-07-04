@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gambarini/xerogolang/helpers"
+	"github.com/XeroAPI/xerogolang/helpers"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/mrjones/oauth"
@@ -282,6 +282,55 @@ func (p *Provider) processRequest(request *http.Request, session goth.Session, a
 	return responseBytes, nil
 }
 
+func (p *Provider) processRequestToFile(request *http.Request, session goth.Session, additionalHeaders map[string]string) (*http.Response, error) {
+	sess := session.(*Session)
+
+	if sess.AccessToken == nil {
+		// data is not yet retrieved since accessToken is still empty
+		return nil, fmt.Errorf("%s cannot process request without accessToken", p.providerName)
+	}
+
+	request.Header.Add("User-Agent", userAgentString)
+	for key, value := range additionalHeaders {
+		request.Header.Add(key, value)
+	}
+
+
+	var err error
+	var response *http.Response
+
+	if p.HTTPClient == nil {
+
+		client, err := p.consumer.MakeHttpClient(sess.AccessToken)
+
+		if err != nil {
+			return nil, err
+		}
+
+		response, err = client.Do(request)
+
+	} else {
+
+		transport, _ := p.consumer.MakeRoundTripper(sess.AccessToken)
+
+		response, err = transport.RoundTrip(request)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(
+			"%d error trying to find information.\n\nResponse:\n%s",
+			response.StatusCode,
+			helpers.ReaderToString(response.Body),
+		)
+	}
+
+	return response, nil
+}
+
 //Find retrieves the requested data from an endpoint to be unmarshaled into the appropriate data type
 func (p *Provider) Find(session goth.Session, endpoint string, additionalHeaders map[string]string, querystringParameters map[string]string) ([]byte, error) {
 	var querystring string
@@ -300,6 +349,26 @@ func (p *Provider) Find(session goth.Session, endpoint string, additionalHeaders
 	}
 
 	return p.processRequest(request, session, additionalHeaders)
+}
+
+//Find retrieves the requested data from an endpoint to be unmarshaled into the appropriate data type
+func (p *Provider) FindAsFile(session goth.Session, endpoint string, additionalHeaders map[string]string, querystringParameters map[string]string) (*http.Response, error) {
+	var querystring string
+	if querystringParameters != nil {
+		for key, value := range querystringParameters {
+			escapedValue := url.QueryEscape(value)
+			querystring = querystring + "&" + key + "=" + escapedValue
+		}
+		querystring = strings.TrimPrefix(querystring, "&")
+		querystring = "?" + querystring
+	}
+
+	request, err := http.NewRequest("GET", endpointProfile+endpoint+querystring, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.processRequestToFile(request, session, additionalHeaders)
 }
 
 //Create sends data to an endpoint and returns a response to be unmarshaled into the appropriate data type
