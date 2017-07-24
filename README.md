@@ -1,8 +1,6 @@
 # xerogolang (alpha)
 This is the Xero Golang SDK for the [Xero API](https://developer.xero.com/).
 
-This forked  Repo adds supports to custom Http Clients. Needed for GAE standard projects.
-
 Currently it only supports the Accounting API.
 
 
@@ -12,7 +10,7 @@ You'll need to decide which type of Xero app you'll be building [Private](http:/
 ### Download Xero Golang SDK
 Download the SDK using the following command:
 ```text
-$ go get github.com/gambarini/xerogolang
+$ go get github.com/XeroAPI/xerogolang
 ```
 
 
