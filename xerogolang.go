@@ -34,6 +34,9 @@ var (
 	//You only need this for private and partner Applications
 	//more details here: https://developer.xero.com/documentation/api-guides/create-publicprivate-key
 	privateKeyFilePath = os.Getenv("XERO_PRIVATE_KEY_PATH")
+
+	// ErrUnauthorized is returned when a request has an expired token. It's here in case you want to trigger a new authorization or specific action.
+	ErrUnauthorized = errors.New("401 - Unauthorized access")
 )
 
 // Provider is the implementation of `goth.Provider` for accessing Xero.
@@ -265,11 +268,18 @@ func (p *Provider) processRequest(request *http.Request, session goth.Session, a
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(
-			"%d error trying to find information.\n\nResponse:\n%s",
-			response.StatusCode,
-			helpers.ReaderToString(response.Body),
-		)
+
+		if response.StatusCode == 401 {
+			return nil, ErrUnauthorized
+
+		} else {
+			return nil, fmt.Errorf(
+				"%d error trying to find information.\n\nResponse:\n%s",
+				response.StatusCode,
+				helpers.ReaderToString(response.Body),
+			)
+		}
+
 	}
 
 	responseBytes, err := ioutil.ReadAll(response.Body)
