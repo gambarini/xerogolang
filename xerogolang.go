@@ -83,6 +83,45 @@ func (p *Provider) newPublicConsumer(authURL string) *oauth.Consumer {
 }
 
 //newPartnerConsumer creates a consumer capable of communicating with a Partner application: https://developer.xero.com/documentation/auth-and-limits/partner-applications
+func (p *Provider) newPartnerConsumer(authURL string, cert []byte) *oauth.Consumer {
+
+	block, _ := pem.Decode(cert)
+
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var c *oauth.Consumer
+
+	if p.HTTPClient != nil{
+		c = oauth.NewCustomRSAConsumer(
+			p.ClientKey,
+			privateKey,
+			crypto.SHA1,
+			oauth.ServiceProvider{
+				RequestTokenUrl:   requestURL,
+				AuthorizeTokenUrl: authURL,
+				AccessTokenUrl:    tokenURL},
+			p.HTTPClient,
+		)
+	} else {
+		c = oauth.NewRSAConsumer(
+			p.ClientKey,
+			privateKey,
+			oauth.ServiceProvider{
+				RequestTokenUrl:   requestURL,
+				AuthorizeTokenUrl: authURL,
+				AccessTokenUrl:    tokenURL},
+		)
+	}
+
+	c.Debug(p.debug)
+
+	return c
+}
+
+//newPartnerConsumer creates a consumer capable of communicating with a Partner application: https://developer.xero.com/documentation/auth-and-limits/partner-applications
 func (p *Provider) newPrivateOrPartnerConsumer(authURL string) *oauth.Consumer {
 	privateKeyFileContents, err := ioutil.ReadFile(privateKeyFilePath)
 	if err != nil {
@@ -151,6 +190,23 @@ func New(clientKey, secret, callbackURL string) *Provider {
 	default:
 		p.consumer = p.newPublicConsumer(authorizeURL)
 	}
+	return p
+}
+
+func NewPartnerCustomHTTPClient(clientKey, secret, callbackURL string, httpClient *http.Client, cert []byte) *Provider {
+	p := &Provider{
+		ClientKey:   clientKey,
+		Secret:      secret,
+		CallbackURL: callbackURL,
+
+		Method:       os.Getenv("XERO_METHOD"),
+		providerName: "xero",
+		HTTPClient:	  httpClient,
+	}
+
+
+	p.consumer = p.newPartnerConsumer(authorizeURL, cert)
+
 	return p
 }
 
